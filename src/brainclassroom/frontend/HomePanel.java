@@ -5,67 +5,193 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
-import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTabbedPane;
+import javax.swing.JScrollPane;
+import javax.swing.JToggleButton;
+import javax.swing.ButtonGroup;
 import javax.swing.SwingUtilities;
 
-/** 화면 선택만 담당한다. 게임 상태·채점·파일 저장은 서비스의 책임이다. */
+/** 화면 선택만 관리한다. 회차·채점·시간·저장은 백엔드 서비스가 담당한다. */
+@SuppressWarnings("serial") // 화면 인스턴스는 직렬화·영구 저장하지 않는다.
 public final class HomePanel extends JPanel {
     private static final long serialVersionUID = 1L;
-    private static final List<String> AREA_LABELS = List.of(
-            "수학능력", "논리추론능력", "공간지각능력", "기억력", "주의집중력", "사고전환능력");
-    private final JTabbedPane activities = new JTabbedPane();
-    private final JLabel selectionLabel = new JLabel("인지 영역을 선택해 주세요.");
-    private final JButton startButton = new JButton("백엔드 연결 준비 중");
+    private static final Color BACKGROUND = new Color(247, 248, 244);
+    private static final Color INK = new Color(38, 54, 48);
+    private static final Color GREEN = new Color(41, 103, 78);
+    private final Map<String, JButton> areaButtons = new LinkedHashMap<>();
+    private final JPanel detailPanel = new JPanel();
+    private final JLabel sectionTitle = label("오늘은 어떤 힘을 키워 볼까요?", 23, true);
+    private final JLabel sectionDescription = label("좋아하는 분야를 골라 천천히 연습해 보세요.", 14, false);
+    private final JButton startButton = new JButton("게임 준비 중");
+    private LearningArea selectedArea = LearningArea.catalog().getFirst();
+    private boolean measurement;
 
     public HomePanel() {
         if (!SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("화면은 EDT에서 생성해야 합니다.");
         }
-        setLayout(new BorderLayout(16, 20));
-        setBorder(BorderFactory.createEmptyBorder(28, 32, 28, 32));
-        setPreferredSize(new Dimension(860, 560));
-        setBackground(new Color(245, 248, 252));
-
-        JPanel heading = new JPanel(new GridLayout(2, 1, 0, 10));
-        JLabel title = new JLabel("두뇌 성장 교실");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 30f));
-        heading.add(title);
-        heading.add(new JLabel("생각하는 힘을 기르는 나만의 교실"));
-        add(heading, BorderLayout.NORTH);
-
-        activities.addTab("인지 측정", createCognitivePanel("측정"));
-        activities.addTab("인지 훈련", createCognitivePanel("훈련"));
-        JPanel knowledge = new JPanel(new BorderLayout());
-        knowledge.add(new JLabel("지식학습 · 분야와 학습/복습 계약을 확인한 후 연결합니다."), BorderLayout.NORTH);
-        activities.addTab("지식학습", knowledge);
-        activities.addChangeListener(event -> selectionLabel.setText("활동을 선택했습니다. 백엔드 연결을 기다려 주세요."));
-        add(activities, BorderLayout.CENTER);
-
-        JPanel footer = new JPanel(new GridLayout(3, 1, 0, 8));
-        footer.add(selectionLabel);
-        footer.add(new JLabel("아직 측정 기록이 없습니다. 게임 결과는 IQ 검사 점수가 아닙니다."));
-        startButton.setEnabled(false);
-        footer.add(startButton);
+        setLayout(new BorderLayout(24, 24));
+        setBorder(BorderFactory.createEmptyBorder(24, 30, 24, 30));
+        setPreferredSize(new Dimension(1180, 880));
+        setBackground(BACKGROUND);
+        add(createHeader(), BorderLayout.NORTH);
+        add(createBody(), BorderLayout.CENTER);
+        JLabel footer = label("조금씩, 꾸준히 자라는 생각의 힘   ·   나만의 속도로 도전해요", 13, false);
         add(footer, BorderLayout.SOUTH);
+        updateSelection();
     }
 
-    private JPanel createCognitivePanel(String activityLabel) {
-        JPanel panel = new JPanel(new BorderLayout(12, 12));
-        panel.setBorder(BorderFactory.createEmptyBorder(20, 12, 20, 12));
-        panel.add(new JLabel(activityLabel + "할 인지 영역을 골라 주세요."), BorderLayout.NORTH);
-        JComboBox<String> areas = new JComboBox<>(AREA_LABELS.toArray(String[]::new));
-        areas.setSelectedIndex(-1);
-        areas.addActionListener(event -> selectionLabel.setText(
-                activityLabel + " · " + areas.getSelectedItem() + " · 게임 서비스 미연결"));
-        JPanel selector = new JPanel(new BorderLayout());
-        selector.add(areas, BorderLayout.NORTH);
-        panel.add(selector, BorderLayout.CENTER);
+    private JPanel createHeader() {
+        JPanel header = panel(new BorderLayout());
+        header.setPreferredSize(new Dimension(1000, 64));
+        JPanel brand = panel(new GridLayout(2, 1, 0, 5));
+        brand.add(label("두뇌 성장 교실", 25, true));
+        brand.add(label("매일 만나는 작은 생각 놀이터", 13, false));
+        header.add(brand, BorderLayout.WEST);
+        JPanel navigation = panel(new GridLayout(1, 2, 8, 0));
+        ButtonGroup group = new ButtonGroup();
+        JToggleButton training = new JToggleButton("학습하기", true);
+        training.setName("mode-training");
+        JToggleButton assessment = new JToggleButton("측정하기");
+        assessment.setName("mode-measurement");
+        for (JToggleButton button : new JToggleButton[] {training, assessment}) {
+            button.setFont(new Font(Font.DIALOG, Font.BOLD, 15));
+            button.setPreferredSize(new Dimension(125, 44));
+            group.add(button);
+            navigation.add(button);
+        }
+        training.addActionListener(event -> changeMode(false));
+        assessment.addActionListener(event -> changeMode(true));
+        header.add(navigation, BorderLayout.EAST);
+        return header;
+    }
+
+    private JPanel createBody() {
+        JPanel body = panel(new BorderLayout(24, 24));
+        JPanel hero = new JPanel(new BorderLayout(20, 12));
+        hero.setBackground(new Color(224, 236, 216));
+        hero.setPreferredSize(new Dimension(1000, 150));
+        hero.setBorder(BorderFactory.createEmptyBorder(24, 26, 24, 26));
+        JPanel heroCopy = new JPanel(new GridLayout(3, 1, 0, 6));
+        heroCopy.setOpaque(false);
+        heroCopy.add(label("생각이 자라는 하루", 13, true));
+        heroCopy.add(label("놀면서 배우고, 한 뼘 더 자라요", 28, true));
+        heroCopy.add(label("6가지 생각의 힘을 재미있는 게임으로 만나 보세요.", 15, false));
+        hero.add(heroCopy, BorderLayout.CENTER);
+        JLabel emblem = label("6가지 힘", 26, true);
+        emblem.setForeground(GREEN);
+        hero.add(emblem, BorderLayout.EAST);
+        body.add(hero, BorderLayout.NORTH);
+
+        JPanel learning = panel(new BorderLayout(20, 16));
+        JPanel heading = panel(new GridLayout(2, 1, 0, 6));
+        heading.setPreferredSize(new Dimension(700, 62));
+        heading.add(sectionTitle);
+        heading.add(sectionDescription);
+        learning.add(heading, BorderLayout.NORTH);
+        JPanel grid = panel(new GridLayout(3, 2, 14, 14));
+        for (LearningArea area : LearningArea.catalog()) {
+            JButton card = new JButton();
+            card.setName("area-" + area.id());
+            card.setLayout(new BorderLayout(8, 10));
+            card.setBackground(Color.WHITE);
+            card.setFocusPainted(true);
+            card.setHorizontalAlignment(JButton.LEFT);
+            card.getAccessibleContext().setAccessibleName(area.title() + " 선택");
+            JLabel icon = label(area.symbol(), 24, true);
+            icon.setForeground(area.color());
+            card.add(icon, BorderLayout.WEST);
+            JPanel words = new JPanel(new GridLayout(2, 1, 0, 5));
+            words.setOpaque(false);
+            words.add(label(area.title(), 19, true));
+            words.add(label(area.subtitle(), 12, false));
+            card.add(words, BorderLayout.CENTER);
+            card.addActionListener(event -> {
+                selectedArea = area;
+                updateSelection();
+            });
+            areaButtons.put(area.id(), card);
+            grid.add(card);
+        }
+        learning.add(grid, BorderLayout.CENTER);
+        body.add(learning, BorderLayout.CENTER);
+
+        detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
+        detailPanel.setBackground(Color.WHITE);
+        detailPanel.setBorder(BorderFactory.createEmptyBorder(22, 22, 22, 22));
+        JScrollPane detailScroll = new JScrollPane(detailPanel);
+        detailScroll.setBorder(BorderFactory.createEmptyBorder());
+        detailScroll.setPreferredSize(new Dimension(300, 400));
+        detailScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        learning.add(detailScroll, BorderLayout.EAST);
+        return body;
+    }
+
+    private void changeMode(boolean isMeasurement) {
+        measurement = isMeasurement;
+        sectionTitle.setText(measurement ? "나의 생각하는 힘을 알아볼까요?" : "오늘은 어떤 힘을 키워 볼까요?");
+        sectionDescription.setText(measurement ? "각 분야의 측정 게임과 진행 방법을 살펴보세요." : "좋아하는 분야를 골라 천천히 연습해 보세요.");
+        updateSelection();
+    }
+
+    private void updateSelection() {
+        for (LearningArea area : LearningArea.catalog()) {
+            JButton button = areaButtons.get(area.id());
+            boolean selected = selectedArea.id().equals(area.id());
+            button.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(selected ? GREEN : new Color(225, 229, 223), selected ? 2 : 1),
+                    BorderFactory.createEmptyBorder(16, 16, 16, 16)));
+            button.setBackground(selected ? new Color(235, 244, 232) : Color.WHITE);
+            button.getAccessibleContext().setAccessibleDescription(selected ? "선택됨" : "선택되지 않음");
+        }
+        detailPanel.removeAll();
+        addDetail(label(measurement ? "분야별 측정" : "오늘의 학습", 13, true), 16);
+        JLabel symbol = label(selectedArea.symbol(), 36, true);
+        symbol.setForeground(selectedArea.color());
+        addDetail(symbol, 14);
+        addDetail(label(selectedArea.title(), 23, true), 8);
+        addDetail(label(measurement ? selectedArea.measurementGame() : selectedArea.trainingGame(), 18, true), 16);
+        JLabel description = label("<html><div style='width:175px'>"
+                + (measurement ? selectedArea.measurementDescription() : selectedArea.trainingDescription())
+                + "</div></html>", 15, false);
+        addDetail(description, 22);
+        addDetail(label(measurement ? "나의 수행 기록을 알아봐요" : "도전하고, 다시 생각해 봐요", 14, true), 8);
+        addDetail(label(measurement ? "아직 측정 기록이 없어요." : "아직 완료한 스테이지가 없어요.", 13, false), 22);
+        startButton.setEnabled(false);
+        startButton.setName("start-game");
+        startButton.setAlignmentX(LEFT_ALIGNMENT);
+        startButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
+        startButton.setToolTipText("게임 플레이는 이후 업데이트에서 연결됩니다.");
+        detailPanel.add(startButton);
+        detailPanel.add(Box.createVerticalStrut(8));
+        addDetail(label("게임은 곧 만날 수 있어요!", 12, false), 12);
+        detailPanel.revalidate();
+        detailPanel.repaint();
+    }
+
+    private void addDetail(JLabel component, int bottomGap) {
+        component.setAlignmentX(LEFT_ALIGNMENT);
+        detailPanel.add(component);
+        detailPanel.add(Box.createVerticalStrut(bottomGap));
+    }
+
+    private static JPanel panel(java.awt.LayoutManager layout) {
+        JPanel panel = new JPanel(layout);
+        panel.setOpaque(false);
         return panel;
+    }
+
+    private static JLabel label(String text, int size, boolean bold) {
+        JLabel label = new JLabel(text);
+        label.setFont(new Font(Font.DIALOG, bold ? Font.BOLD : Font.PLAIN, size));
+        label.setForeground(INK);
+        return label;
     }
 }
