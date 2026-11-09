@@ -1,6 +1,9 @@
 package brainclassroom.frontend;
 
 import java.awt.BorderLayout;
+import brainclassroom.onboarding.StudentProfile;
+import brainclassroom.onboarding.AssessmentResult;
+import java.util.Optional;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -32,14 +35,26 @@ public final class HomePanel extends JPanel {
     private final JButton startButton = new JButton("게임 준비 중");
     private LearningArea selectedArea = LearningArea.catalog().getFirst();
     private boolean measurement;
+    private final Optional<StudentProfile> profile;
+    private final Optional<AssessmentResult> assessmentResult;
 
     public HomePanel() {
+        this(Optional.empty(), Optional.empty());
+    }
+
+    public HomePanel(StudentProfile profile, AssessmentResult result) {
+        this(Optional.of(profile), Optional.of(result));
+    }
+
+    private HomePanel(Optional<StudentProfile> profile, Optional<AssessmentResult> result) {
+        this.profile = profile;
+        this.assessmentResult = result;
         if (!SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("화면은 EDT에서 생성해야 합니다.");
         }
         setLayout(new BorderLayout(24, 24));
         setBorder(BorderFactory.createEmptyBorder(24, 30, 24, 30));
-        setPreferredSize(new Dimension(1180, 880));
+        setPreferredSize(new Dimension(1220, 940));
         setBackground(BACKGROUND);
         add(createHeader(), BorderLayout.NORTH);
         add(createBody(), BorderLayout.CENTER);
@@ -77,17 +92,31 @@ public final class HomePanel extends JPanel {
         JPanel body = panel(new BorderLayout(24, 24));
         JPanel hero = new JPanel(new BorderLayout(20, 12));
         hero.setBackground(new Color(224, 236, 216));
-        hero.setPreferredSize(new Dimension(1000, 150));
+        hero.setPreferredSize(new Dimension(1000, 280));
         hero.setBorder(BorderFactory.createEmptyBorder(24, 26, 24, 26));
-        JPanel heroCopy = new JPanel(new GridLayout(3, 1, 0, 6));
+        JPanel heroCopy = new JPanel();
+        heroCopy.setLayout(new BoxLayout(heroCopy, BoxLayout.Y_AXIS));
         heroCopy.setOpaque(false);
         heroCopy.add(label("생각이 자라는 하루", 13, true));
-        heroCopy.add(label("놀면서 배우고, 한 뼘 더 자라요", 28, true));
+        heroCopy.add(Box.createVerticalStrut(12));
+        heroCopy.add(label(profile.map(value -> value.name() + "님의 생각 놀이터").orElse("놀면서 배우고, 한 뼘 더 자라요"), 25, true));
+        heroCopy.add(Box.createVerticalStrut(10));
         heroCopy.add(label("6가지 생각의 힘을 재미있는 게임으로 만나 보세요.", 15, false));
+        heroCopy.add(Box.createVerticalStrut(12));
+        assessmentResult.ifPresent(result -> {
+            heroCopy.add(Ui.paragraph("이번 풀이의 강점: " + result.strengthTitles(), 300));
+            heroCopy.add(Box.createVerticalStrut(8));
+            heroCopy.add(Ui.paragraph("함께 연습할 분야: " + result.practiceTitles(), 300));
+        });
         hero.add(heroCopy, BorderLayout.CENTER);
-        JLabel emblem = label("6가지 힘", 26, true);
-        emblem.setForeground(GREEN);
-        hero.add(emblem, BorderLayout.EAST);
+        profile.ifPresent(value -> {
+            AvatarBadge avatar = new AvatarBadge(value.avatar());
+            avatar.setPreferredSize(new Dimension(90, 90));
+            hero.add(avatar, BorderLayout.WEST);
+        });
+        RadarChart radar = new RadarChart(assessmentResult);
+        radar.setPreferredSize(new Dimension(370, 210));
+        hero.add(radar, BorderLayout.EAST);
         body.add(hero, BorderLayout.NORTH);
 
         JPanel learning = panel(new BorderLayout(20, 16));
@@ -163,7 +192,11 @@ public final class HomePanel extends JPanel {
                 + "</div></html>", 15, false);
         addDetail(description, 22);
         addDetail(label(measurement ? "나의 수행 기록을 알아봐요" : "도전하고, 다시 생각해 봐요", 14, true), 8);
-        addDetail(label(measurement ? "아직 측정 기록이 없어요." : "아직 완료한 스테이지가 없어요.", 13, false), 22);
+        String recordText = measurement ? assessmentResult.map(result -> result.areas().stream()
+                .filter(area -> area.areaId().equals(selectedArea.id())).findFirst().orElseThrow())
+                .map(area -> "시작 테스트: " + area.correctCount() + "/" + area.questionCount() + "문제 정답")
+                .orElse("아직 측정 기록이 없어요.") : "아직 완료한 스테이지가 없어요.";
+        addDetail(label(recordText, 13, false), 22);
         startButton.setEnabled(false);
         startButton.setName("start-game");
         startButton.setAlignmentX(LEFT_ALIGNMENT);

@@ -16,7 +16,8 @@ public final class FrontendApp {
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("두뇌 성장 교실");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setContentPane(new HomePanel());
+            frame.setContentPane(new OnboardingPanel());
+            frame.setMinimumSize(new java.awt.Dimension(1120, 900));
             frame.pack();
             frame.setLocationRelativeTo(null);
             frame.setVisible(true);
